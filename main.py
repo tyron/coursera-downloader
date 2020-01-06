@@ -12,8 +12,25 @@ import os
 import pathlib
 import re
 import collections, functools, operator 
+import string
 
-course_url = "https://www.coursera.org/learn/leveraging-unstructured-data-dataproc-gcp/home/welcome"
+course_url = "https://www.coursera.org/learn/serverless-machine-learning-gcp/home/welcome"
+
+def format_filename(s):
+    """Take a string and return a valid filename constructed from the string.
+Uses a whitelist approach: any characters not present in valid_chars are
+removed. Also spaces are replaced with underscores.
+ 
+Note: this method may produce invalid filenames such as ``, `.` or `..`
+When I use this method I prepend a date string like '2009_01_15_19_46_32_'
+and append a file extension like '.txt', so I avoid the potential of using
+an invalid filename.
+ 
+"""
+    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    filename = ''.join(c for c in s if c in valid_chars)
+    # filename = filename.replace(' ','_') # I don't like spaces in filenames.
+    return filename
 
 # pass the url of a week's, returns all links that start with Video:
 def get_all_videos_subpage(driver, page_url) -> List[str]:
@@ -54,9 +71,16 @@ def download_videos_from_links(driver, all_links, folder="."):
                 # video=driver.find_element_by_tag_name("video")
 
                 # v_url = video.get_property('src')
-                v_url = wait.until(EC.presence_of_element_located((By.TAG_NAME, "video"))).get_property('src')
                 v_title = wait.until(EC.presence_of_element_located(
                                     (By.CSS_SELECTOR, ".video-name"))).text
+                v_url = wait.until(EC.presence_of_element_located((By.TAG_NAME, "video"))).get_property('src')
+                
+                vid_sources = driver.find_elements_by_tag_name("source")
+                for source in vid_sources:
+                    if source.get_property("type") == "video/mp4":
+                        v_url = source.get_property("src")
+
+                print("Downloading video '{0}' from {1}".format(v_title, v_url))
             except:
                 # if there's no video, continue to next iteration
                 continue
@@ -66,7 +90,7 @@ def download_videos_from_links(driver, all_links, folder="."):
                 path = parse.path
                 ext = os.path.splitext(path)[1]
 
-                filename = 'W%s-V%s %s%s' % (entry["page"]["week"], index, v_title, ext)
+                filename = format_filename("W{0}-V{1} {2}{3}".format(entry["page"]["week"], index, v_title, ext))
 
                 if not os.path.isfile(filename): # only downloads if doesnt exists
                     urllib.request.urlretrieve(v_url, "{0}/{1}".format(folder, filename))
@@ -116,6 +140,7 @@ elems=driver.find_elements_by_class_name("rc-NavigationDrawerLink")
 
 weeks=[]
 for item in elems:
+    print('Got week: {0}'.format(item.text))
     weeks.append({ "title": item.text, "week": int(re.search("(\d*)$", item.text).group(1)), "url": item.get_property('href') })
 
 all_links = []
@@ -125,9 +150,8 @@ try:
         subpages_url = get_all_videos_subpage(driver, page_url["url"])
         entry = { "page": page_url, "subpages": subpages_url }
         all_links.append(entry)
+        print('Identified {0} videos on {1}'.format(len(subpages_url), page_url["title"]))
 except:
     driver.quit()
-
-
 
 download_videos_from_links(driver, all_links, folder=course_title)
