@@ -44,7 +44,7 @@ def get_all_videos_subpage(driver, page_url) -> List[dict]:
         try:
             t:WebElement = sublink_elem.find_element_by_tag_name("strong")
             if t.text.startswith("Video"):
-                link = driver.execute_script("return arguments[0].parentNode.parentNode.parentNode.parentNode", sublink_elem).get_property('href')
+                link = driver.execute_script("return arguments[0].closest('a')", sublink_elem).get_property('href')
                 title = re.search("(?s:.*)\n(.*)", sublink_elem.text).group(1)
                 pages_with_videos.append({ "title": title, "link": link })
         except:
@@ -147,6 +147,7 @@ def main(argv):
 
     if not already_logged:
         try:
+            print('User not logged in, waiting up to 5 minutes for user to login')
             WebDriverWait(driver, 300).until(EC.invisibility_of_element(driver.find_element_by_link_text("Log In")))
             # only gets here if I logged, otherwise it goes to except
             already_logged = True
