@@ -13,8 +13,7 @@ import pathlib
 import re
 import collections, functools, operator 
 import string
-
-course_url = "https://www.coursera.org/learn/serverless-data-analysis-bigquery-cloud-dataflow-gcp/home/welcome"
+import sys, getopt
 
 def format_filename(s):
     """Take a string and return a valid filename constructed from the string.
@@ -109,57 +108,82 @@ def download_videos_from_links(drivexxr, all_links, folder="."):
             finally:
                 index += 1
 
-driver : webdriver
-try:
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("user-data-dir=selenium")
-    driver = webdriver.Chrome(options=chrome_options)
-except:
-    exit()
+def main(argv):
 
-driver.get(course_url)
-try:
-    driver.find_element_by_link_text("Log In")
-    already_logged = False
-except:
-    already_logged = True
-    pass
+    course_url : str = "" 
 
-if not already_logged:
     try:
-        WebDriverWait(driver, 300).until(EC.invisibility_of_element(driver.find_element_by_link_text("Log In")))
-        # only gets here if I logged, otherwise it goes to except
+        opts, args = getopt.getopt(argv,"hu:",["url="])
+    except getopt.GetoptError:
+        print('main.py -u <inputUrl>')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print('main.py -u <inputUrl>')
+            sys.exit()
+        elif opt in ("-u", "--url"):
+            course_url = arg
+
+    # course_url = "https://www.coursera.org/learn/hybrid-cloud-infrastructure-foundations-anthos/home/welcome"
+    if not course_url:
+        print('URL not provided')
+        sys.exit()
+
+    driver : webdriver
+    try:
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("user-data-dir=selenium")
+        driver = webdriver.Chrome(options=chrome_options)
+    except:
+        exit()
+
+    driver.get(course_url)
+    try:
+        driver.find_element_by_link_text("Log In")
+        already_logged = False
+    except:
         already_logged = True
+        pass
+
+    if not already_logged:
+        try:
+            WebDriverWait(driver, 300).until(EC.invisibility_of_element(driver.find_element_by_link_text("Log In")))
+            # only gets here if I logged, otherwise it goes to except
+            already_logged = True
+        except:
+            driver.quit()
+            exit(1)
+
+    time.sleep(3)
+
+    course_title = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "course-name"))).text
+
+    if not os.path.isdir(course_title):
+        os.mkdir(course_title)
+
+    # WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.CLASS_NAME, "rc-NavigationDrawerLink")))
+    elems=driver.find_elements_by_class_name("rc-NavigationDrawerLink")
+
+    weeks=[]
+    for item in elems:
+        print('Got week: {0}'.format(item.text))
+        weeks.append({ "title": item.text, "week": int(re.search("(\d*)$", item.text).group(1)), "url": item.get_property('href') })
+
+    all_links = []
+    try:
+        for page_url in weeks:
+            #if not page_url["week"] == 1:
+            subpages = get_all_videos_subpage(driver, page_url["url"])
+            entry = { "page": page_url, "subpages": subpages }
+            all_links.append(entry)
+            print('Identified {0} videos on {1}'.format(len(subpages), page_url["title"]))
     except:
         driver.quit()
-        exit(1)
 
-time.sleep(3)
+    download_videos_from_links(driver, all_links, folder=course_title)
 
-course_title = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "course-name"))).text
+    print("Completed!")
 
-if not os.path.isdir(course_title):
-    os.mkdir(course_title)
 
-# WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.CLASS_NAME, "rc-NavigationDrawerLink")))
-elems=driver.find_elements_by_class_name("rc-NavigationDrawerLink")
-
-weeks=[]
-for item in elems:
-    print('Got week: {0}'.format(item.text))
-    weeks.append({ "title": item.text, "week": int(re.search("(\d*)$", item.text).group(1)), "url": item.get_property('href') })
-
-all_links = []
-try:
-    for page_url in weeks:
-        #if not page_url["week"] == 1:
-        subpages = get_all_videos_subpage(driver, page_url["url"])
-        entry = { "page": page_url, "subpages": subpages }
-        all_links.append(entry)
-        print('Identified {0} videos on {1}'.format(len(subpages), page_url["title"]))
-except:
-    driver.quit()
-
-download_videos_from_links(driver, all_links, folder=course_title)
-
-print("Completed!")
+if __name__ == "__main__":
+    main(sys.argv[1:])
