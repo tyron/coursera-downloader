@@ -64,9 +64,9 @@ def download_videos_from_links(driver, all_links, folder="."):
             link = subpage["link"]
 
             if os.path.isfile("{0}/{1}".format(folder, format_filename("W{0}-V{1} {2}{3}".format(week_num, index, v_title, ".mp4")))) or \
-               os.path.isfile("{0}/{1}".format(folder, format_filename("W{0}-V{1} {2}{3}".format(week_num, index, v_title, ".webm")))):
-               index += 1
-               continue
+                os.path.isfile("{0}/{1}".format(folder, format_filename("W{0}-V{1} {2}{3}".format(week_num, index, v_title, ".webm")))):
+                index += 1
+                continue
 
             driver.get(link)
             
@@ -111,11 +111,12 @@ def download_videos_from_links(driver, all_links, folder="."):
 def main(argv):
 
     course_url : str = "" 
+    output : str = "."
 
     try:
-        opts, args = getopt.getopt(argv,"hu:",["url="])
+        opts, args = getopt.getopt(argv,"hu:o:",["url=","output="])
     except getopt.GetoptError:
-        print('main.py -u <inputUrl>')
+        print('main.py -u <inputUrl> [-o <outputDir>]')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
@@ -123,6 +124,8 @@ def main(argv):
             sys.exit()
         elif opt in ("-u", "--url"):
             course_url = arg
+        elif opt in ("-o", "--output"):
+            output = arg
 
     # course_url = "https://www.coursera.org/learn/hybrid-cloud-infrastructure-foundations-anthos/home/welcome"
     if not course_url:
@@ -158,9 +161,10 @@ def main(argv):
     time.sleep(3)
 
     course_title = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "course-name"))).text
-
-    if not os.path.isdir(course_title):
-        os.mkdir(course_title)
+    
+    output_folder = os.path.expanduser(os.path.join(output.strip(), course_title))
+    if not os.path.isdir(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
 
     # WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.CLASS_NAME, "rc-NavigationDrawerLink")))
     elems=driver.find_elements_by_class_name("rc-NavigationDrawerLink")
@@ -181,7 +185,7 @@ def main(argv):
     except:
         driver.quit()
 
-    download_videos_from_links(driver, all_links, folder=course_title)
+    download_videos_from_links(driver, all_links, folder=output_folder)
 
     print("Completed!")
 
