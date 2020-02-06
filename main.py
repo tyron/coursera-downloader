@@ -52,7 +52,7 @@ def get_all_videos_subpage(driver, page_url) -> List[dict]:
 
     return pages_with_videos
 
-def download_videos_from_links(drivexxr, all_links, folder="."):
+def download_videos_from_links(driver, all_links, folder="."):
     # each entry represents a new week
     for entry in all_links:
         index=1
