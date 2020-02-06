@@ -160,6 +160,12 @@ def main(argv):
 
     time.sleep(3)
 
+    try:
+        btn = driver.find_element_by_xpath("//button[contains(.,'Go To Course')]")
+        btn.click()
+    except:
+        pass
+
     course_title = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "course-name"))).text
     
     output_folder = os.path.expanduser(os.path.join(output.strip(), course_title))
